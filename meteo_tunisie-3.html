@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Météo Tunisie</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0b1120;--bg2:#111827;--bg3:#1c2a3e;--bg4:#243347;
+  --bdr:rgba(255,255,255,.07);--tx:#e2e8f0;--mu:#64748b;
+  --n2:#3b82f6;--n1:#22d3ee;--act:#a78bfa;--dif:#f472b6;
+  --gr:#34d399;--rd:#f87171;--or:#fb923c;--r:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;min-height:100vh}
+/* HEADER */
+header{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;height:62px;
+  position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:11px}
+.logo-ic{width:36px;height:36px;border-radius:8px;
+  background:linear-gradient(135deg,#3b82f6,#fb923c);
+  display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-tx{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.logo-sb{font-size:10px;color:var(--mu);font-family:'DM Mono',monospace}
+.hr{display:flex;align-items:center;gap:10px}
+.mnav{display:flex;align-items:center;gap:5px;background:var(--bg3);
+  border:1px solid var(--bdr);border-radius:var(--r);padding:3px}
+.nb{background:none;border:none;color:var(--mu);width:26px;height:26px;
+  border-radius:6px;cursor:pointer;font-size:15px;transition:.15s;
+  display:flex;align-items:center;justify-content:center}
+.nb:hover{background:var(--bg4);color:var(--tx)}
+.ml{font-family:'DM Mono',monospace;font-size:12px;color:var(--tx);
+  padding:0 8px;min-width:108px;text-align:center}
+.btn{height:34px;border-radius:var(--r);cursor:pointer;font-family:'Syne',sans-serif;
+  font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;
+  transition:.15s;padding:0 14px;border:1px solid var(--bdr);white-space:nowrap}
+.btn-sec{background:var(--bg3);color:var(--tx)}
+.btn-sec:hover{background:var(--bg4)}
+.btn-sec.loading .sp{animation:spin .7s linear infinite}
+.btn-pri{background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff}
+.btn-pri:hover{opacity:.88}
+.btn-pri.busy{opacity:.5;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* STATUS */
+.sb{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:7px 24px;
+  display:flex;align-items:center;gap:20px;font-family:'DM Mono',monospace;
+  font-size:11px;color:var(--mu)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot.ok{background:var(--gr)}.dot.loading{background:var(--or);animation:pu .8s ease-in-out infinite}
+.dot.error{background:var(--rd)}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.35}}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;
+  padding:16px 24px;border-bottom:1px solid var(--bdr)}
+.kc{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);
+  padding:12px 14px;cursor:pointer;transition:.18s}
+.kc:hover,.kc.on{background:var(--bg3);border-color:rgba(251,146,60,.45)}
+.kc.on{border-color:var(--or)}
+.kc-city{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--mu);margin-bottom:5px}
+.kc-t{font-family:'DM Mono',monospace;font-size:24px;font-weight:500}
+.kc-t .u{font-size:12px;color:var(--mu)}
+.kc-d{font-family:'DM Mono',monospace;font-size:11px;margin-top:3px}
+.pos{color:var(--rd)}.neg{color:var(--gr)}.neu{color:var(--mu)}
+/* TABS */
+.tabs{display:flex;padding:0 24px;border-bottom:1px solid var(--bdr)}
+.tab{padding:12px 18px;font-size:13px;font-weight:600;color:var(--mu);cursor:pointer;
+  border-bottom:2px solid transparent;transition:.15s;display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--tx)}.tab.on{color:var(--tx);border-bottom-color:var(--or)}
+.tbg{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg3);
+  font-family:'DM Mono',monospace}
+/* MAIN */
+.main{padding:18px 24px}
+.ep{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);
+  border-radius:var(--r);padding:12px;margin-bottom:14px;font-size:12px;color:#fca5a5}
+/* TABLE */
+.tw{overflow-x:auto}
+.dt{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:12px}
+.dt th{padding:7px 9px;text-align:center;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.dt td{padding:5px 9px;text-align:center;border-bottom:1px solid var(--bdr)}
+.dt tr:hover td{background:rgba(255,255,255,.02)}
+.dc{font-weight:600;color:var(--tx);white-space:nowrap;font-size:11px}
+.sep{width:6px;background:var(--bg);padding:0}
+.cn2{color:var(--n2)}.cn1{color:var(--n1)}.ca{color:var(--act);font-weight:600}
+.cd{font-weight:600}.cm{color:var(--dif);font-size:10px}
+.we td{background:rgba(255,255,255,.01)}.td td{background:rgba(251,146,60,.07)}
+.td td.dc{color:var(--or)}
+.hco{color:#93c5fd}.hcl{color:#67e8f9}.hmi{color:#86efac}
+.hwa{color:#fde68a}.hho{color:#fca5a5}.hvh{color:#f87171}
+/* FORECAST */
+.fcg{display:flex;flex-direction:column;gap:10px}
+.fcb{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden}
+.fch{background:#1F4E79;color:#fff;padding:9px 14px;font-size:11px;font-weight:700;
+  letter-spacing:.7px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.fcr{display:flex;overflow-x:auto;gap:0;padding:6px}
+.fcd{flex:0 0 72px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:8px 4px;border-radius:7px;border:1px solid transparent;transition:.12s}
+.fcd:hover{background:var(--bg3);border-color:var(--bdr)}
+.fc-td{background:rgba(251,146,60,.1)!important;border-color:rgba(251,146,60,.4)!important}
+.fdl{font-family:'DM Mono',monospace;font-size:9px;color:var(--mu);text-align:center;line-height:1.4}
+.fdl strong{color:var(--tx);font-size:10px;display:block}
+.fico{width:38px;height:38px}
+.fmx{font-family:'DM Mono',monospace;font-size:14px;font-weight:500}
+.fmn{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu)}
+.fds{font-size:9px;color:var(--mu);text-align:center;line-height:1.2;max-width:68px}
+.frn{font-size:9px;color:#60a5fa;text-align:center}
+/* CHART SECTION */
+.cmode-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.cmb{height:32px;padding:0 16px;border-radius:var(--r);border:1px solid var(--bdr);
+  background:var(--bg3);color:var(--mu);cursor:pointer;font-family:'Syne',sans-serif;
+  font-size:12px;font-weight:600;transition:.15s}
+.cmb:hover{background:var(--bg4);color:var(--tx)}
+.cmb.on{background:var(--bg4);color:var(--tx);border-color:rgba(251,146,60,.5)}
+/* GAUGE GRID */
+.gg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:1100px){.gg{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.gg{grid-template-columns:repeat(2,1fr)}}
+.gc{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);
+  padding:12px;transition:.15s}
+.gc:hover{background:var(--bg3)}
+.gch{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.gci{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;font-size:15px}
+.gcn{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.gcs{font-size:10px;color:var(--mu);font-family:'DM Mono',monospace}
+.gstat{display:flex;justify-content:space-around;margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--bdr)}
+.gst-item{text-align:center}
+.gst-lbl{font-size:9px;color:var(--mu);margin-bottom:2px}
+.gst-val{font-size:13px;font-family:'DM Mono',monospace;font-weight:500}
+/* SPARK GRID */
+.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(max-width:650px){.sg{grid-template-columns:1fr}}
+.sc{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:12px}
+/* COMPARE */
+.crow{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:800px){.crow{grid-template-columns:1fr}}
+.cc{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:14px}
+.ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--mu);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:6px}
+.cleg{display:flex;gap:12px;font-size:10px;font-family:'DM Mono',monospace}
+.ld{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.cbtns{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.cbtn{padding:4px 12px;border-radius:6px;border:1px solid var(--bdr);background:var(--bg3);
+  color:var(--mu);cursor:pointer;font-family:'Syne',sans-serif;font-size:11px;transition:.13s}
+.cbtn.on{background:var(--bg4);color:var(--tx);font-weight:600}
+footer{text-align:center;padding:18px;font-size:10px;color:var(--mu);
+  font-family:'DM Mono',monospace;border-top:1px solid var(--bdr);margin-top:16px}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:750px){.kpis{grid-template-columns:repeat(2,1fr)}.main,.kpis{padding:12px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-ic">🌡</div>
+    <div>
+      <div class="logo-tx">Météo Tunisie</div>
+      <div class="logo-sb">Open-Meteo · Live</div>
+    </div>
+  </div>
+  <div class="hr">
+    <div class="mnav">
+      <button class="nb" onclick="changeMonth(-1)">‹</button>
+      <span class="ml" id="mLabel">—</span>
+      <button class="nb" onclick="changeMonth(1)">›</button>
+    </div>
+    <button class="btn btn-sec" id="rBtn" onclick="loadAll()">
+      <span class="sp" id="spIco">↻</span>Actualiser
+    </button>
+    <button class="btn btn-pri" id="xBtn" onclick="exportExcel()">
+      <span id="xIco">↓</span>Excel
+    </button>
+  </div>
+</header>
+
+<div class="sb">
+  <span><span class="dot loading" id="sDot"></span><span id="sTxt">Chargement…</span></span>
+  <span id="sDt">—</span>
+  <span>Open-Meteo Archive + Forecast ECMWF</span>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="tabs">
+  <div class="tab on"  onclick="goTab('t13')"   id="tab-t13">Température 13h <span class="tbg">7 villes</span></div>
+  <div class="tab"     onclick="goTab('tmin')"  id="tab-tmin">Température Min <span class="tbg">7 villes</span></div>
+  <div class="tab"     onclick="goTab('prev')"  id="tab-prev">Prévisions ☀ <span class="tbg">J+16</span></div>
+  <div class="tab"     onclick="goTab('chart')" id="tab-chart">Graphiques</div>
+</div>
+
+<div class="main">
+  <div id="ep" class="ep" style="display:none"></div>
+
+  <div id="v-t13">
+    <div class="tw"><table class="dt"><thead id="th-t13"></thead><tbody id="tb-t13"></tbody></table></div>
+  </div>
+  <div id="v-tmin" style="display:none">
+    <div class="tw"><table class="dt"><thead id="th-tmin"></thead><tbody id="tb-tmin"></tbody></table></div>
+  </div>
+  <div id="v-prev" style="display:none">
+    <div class="fcg" id="fcGrid"></div>
+  </div>
+  <div id="v-chart" style="display:none">
+    <div class="cmode-bar">
+      <button class="cmb on" id="cmb-g" onclick="setCMode('g')">⬤ Jauges</button>
+      <button class="cmb"    id="cmb-s" onclick="setCMode('s')">∿ Sparklines</button>
+      <button class="cmb"    id="cmb-c" onclick="setCMode('c')">⊞ Comparaison</button>
+    </div>
+    <div id="cm-g"></div>
+    <div id="cm-s" style="display:none"></div>
+    <div id="cm-c" style="display:none">
+      <div class="crow">
+        <div class="cc">
+          <div class="ct">Température 13h — <span id="ccity">Tunis</span>
+            <div class="cleg">
+              <span><span class="ld" style="background:var(--n2)"></span>N-2</span>
+              <span><span class="ld" style="background:var(--n1)"></span>N-1</span>
+              <span><span class="ld" style="background:var(--act)"></span>Actuel</span>
+            </div>
+          </div>
+          <canvas id="c-13h" height="200"></canvas>
+        </div>
+        <div class="cc">
+          <div class="ct">Diff. moyen / ville</div>
+          <canvas id="c-df" height="200"></canvas>
+        </div>
+      </div>
+      <div class="crow">
+        <div class="cc">
+          <div class="ct">Température Min — <span id="ccity2">Tunis</span>
+            <div class="cleg">
+              <span><span class="ld" style="background:var(--n2)"></span>N-2</span>
+              <span><span class="ld" style="background:var(--n1)"></span>N-1</span>
+              <span><span class="ld" style="background:var(--act)"></span>Actuel</span>
+            </div>
+          </div>
+          <canvas id="c-mn" height="200"></canvas>
+        </div>
+        <div class="cc">
+          <div class="ct">Prévisions J+16 — toutes villes</div>
+          <canvas id="c-ht" height="200"></canvas>
+        </div>
+      </div>
+      <div class="cbtns" id="cbtns"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Données : <a href="https://open-meteo.com" target="_blank" style="color:var(--n2)">Open-Meteo</a>
+  · Archive historique + Prévisions J+16 ECMWF · 7 villes tunisiennes · Mise à jour automatique
+</footer>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════
+const VL=[
+  {id:'tunis',    lbl:'Tunis',    lat:36.8065,lon:10.1815,col:'#3b82f6',ic:'🏙',bg:'rgba(59,130,246,.15)'},
+  {id:'kairouan', lbl:'Kairouan',lat:35.6712,lon:10.1002,col:'#f59e0b',ic:'🕌',bg:'rgba(245,158,11,.15)'},
+  {id:'sfax',     lbl:'Sfax',    lat:34.7406,lon:10.7603,col:'#10b981',ic:'🌊',bg:'rgba(16,185,129,.15)'},
+  {id:'sousse',   lbl:'Sousse',  lat:35.8256,lon:10.6369,col:'#06b6d4',ic:'🏖',bg:'rgba(6,182,212,.15)'},
+  {id:'beja',     lbl:'Béja',    lat:36.7256,lon: 9.1817,col:'#8b5cf6',ic:'⛰',bg:'rgba(139,92,246,.15)'},
+  {id:'kasserine',lbl:'Kasserine',lat:35.1667,lon:8.8333,col:'#ef4444',ic:'🏔',bg:'rgba(239,68,68,.15)'},
+  {id:'medenine', lbl:'Médenine',lat:33.3549,lon:10.5055,col:'#f97316',ic:'🏜',bg:'rgba(249,115,22,.15)'},
+];
+const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const JRS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let cM,cY,today;
+let AD={},FD={},CH={};
+let cCity=VL[0].id,cCityLbl=VL[0].lbl;
+let cMode='g',spType='t13',curTab='t13';
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+function init(){
+  today=new Date();
+  cM=today.getMonth()+1;
+  cY=today.getFullYear();
+  updML();
+  loadAll();
+}
+function changeMonth(d){
+  cM+=d;
+  if(cM>12){cM=1;cY++;} if(cM<1){cM=12;cY--;}
+  updML(); loadAll();
+}
+function updML(){
+  document.getElementById('mLabel').textContent=MOIS[cM-1]+' '+cY;
+}
+
+// ══════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════
+function dim(m,y){return new Date(y,m,0).getDate();}
+function fd(d){return d.toISOString().slice(0,10);}
+async function sf(fn){try{return await fn();}catch(e){return null;}}
+function hc(v){
+  if(v==null)return'';if(v<8)return'hco';if(v<13)return'hcl';
+  if(v<18)return'hmi';if(v<23)return'hwa';if(v<28)return'hho';return'hvh';
+}
+function avgArr(a){const f=a.filter(x=>x!=null);return f.length?+(f.reduce((s,x)=>s+x,0)/f.length).toFixed(1):null;}
+function setStatus(type,msg){
+  document.getElementById('sDot').className='dot '+type;
+  document.getElementById('sTxt').textContent=msg;
+}
+
+// ══════════════════════════════════════════════
+//  API
+// ══════════════════════════════════════════════
+async function apiArc(lat,lon,yr,mo,nb){
+  const d1=fd(new Date(yr,mo-1,1)),d2=fd(new Date(yr,mo-1,nb));
+  const r=await fetch(
+    'https://archive-api.open-meteo.com/v1/archive?latitude='+lat+'&longitude='+lon+
+    '&start_date='+d1+'&end_date='+d2+
+    '&hourly=temperature_2m&daily=temperature_2m_min&timezone=Africa%2FTunis'
+  );
+  if(!r.ok) throw new Error('arc '+r.status);
+  return r.json();
+}
+async function apiFc(lat,lon,mo,yr,nb){
+  const d2=fd(new Date(yr,mo-1,nb));
+  const r=await fetch(
+    'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&end_date='+d2+
+    '&hourly=temperature_2m&daily=temperature_2m_min'+
+    '&timezone=Africa%2FTunis&forecast_days=16&past_days=31'
+  );
+  if(!r.ok) throw new Error('fc '+r.status);
+  const data=await r.json();
+  const d1s=fd(new Date(yr,mo-1,1));
+  const oH=data.hourly.time.findIndex(t=>t.startsWith(d1s));
+  const oD=data.daily.time.findIndex(t=>t===d1s);
+  if(oH>=0) data.hourly.temperature_2m=data.hourly.temperature_2m.slice(oH,oH+nb*24);
+  if(oD>=0) data.daily.temperature_2m_min=data.daily.temperature_2m_min.slice(oD,oD+nb);
+  return data;
+}
+async function apiVis(lat,lon){
+  const r=await fetch(
+    'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum'+
+    '&timezone=Africa%2FTunis&forecast_days=16'
+  );
+  if(!r.ok) throw new Error('vis '+r.status);
+  return r.json();
+}
+function ex13(data,nb){
+  const h=data.hourly.temperature_2m;
+  return Array.from({length:nb},(_,j)=>{const v=h[j*24+13];return v!=null?Math.round(v):null;});
+}
+function exMin(data,nb){
+  const m=data.daily.temperature_2m_min;
+  return Array.from({length:nb},(_,j)=>{const v=m[j];return v!=null?Math.round(v):null;});
+}
+
+// ══════════════════════════════════════════════
+//  LOAD DATA PER CITY
+// ══════════════════════════════════════════════
+async function loadCity(v,nb){
+  const {lat,lon}=v;
+  const same=(today.getMonth()+1===cM&&today.getFullYear()===cY);
+  const nbA=same?Math.min(today.getDate()-1,nb):nb;
+  const past=!same;
+
+  const [dN2,dN1,dPr,dAc]=await Promise.all([
+    sf(()=>apiArc(lat,lon,cY-2,cM,nb)),
+    sf(()=>apiArc(lat,lon,cY-1,cM,nb)),
+    sf(()=>apiFc(lat,lon,cM,cY,nb)),
+    (same&&nbA>0)?sf(()=>apiArc(lat,lon,cY,cM,nbA))
+    :past?sf(()=>apiArc(lat,lon,cY,cM,nb))
+    :Promise.resolve(null),
+  ]);
+
+  const t13_n2=dN2?ex13(dN2,nb):Array(nb).fill(null);
+  const tm_n2 =dN2?exMin(dN2,nb):Array(nb).fill(null);
+  const t13_n1=dN1?ex13(dN1,nb):Array(nb).fill(null);
+  const tm_n1 =dN1?exMin(dN1,nb):Array(nb).fill(null);
+  const t13_pr=dPr?ex13(dPr,nb):Array(nb).fill(null);
+  const tm_pr =dPr?exMin(dPr,nb):Array(nb).fill(null);
+  const t13_ac=Array(nb).fill(null);
+  const tm_ac =Array(nb).fill(null);
+  if(dAc){
+    const nf=past?nb:nbA;
+    const a=ex13(dAc,nf),b=exMin(dAc,nf);
+    for(let i=0;i<nf;i++){t13_ac[i]=a[i];tm_ac[i]=b[i];}
+  }
+  return{t13_n2,t13_n1,t13_ac,t13_pr,tm_n2,tm_n1,tm_ac,tm_pr};
+}
+
+// ══════════════════════════════════════════════
+//  MAIN LOAD
+// ══════════════════════════════════════════════
+async function loadAll(){
+  setStatus('loading','Chargement…');
+  document.getElementById('rBtn').classList.add('loading');
+  document.getElementById('ep').style.display='none';
+  AD={};FD={};
+  const nb=dim(cM,cY);
+  const errs=[];
+
+  await Promise.all(VL.map(async v=>{
+    try{AD[v.id]=await loadCity(v,nb);}
+    catch(e){
+      errs.push(v.lbl);
+      AD[v.id]={t13_n2:Array(nb).fill(null),t13_n1:Array(nb).fill(null),
+        t13_ac:Array(nb).fill(null),t13_pr:Array(nb).fill(null),
+        tm_n2:Array(nb).fill(null),tm_n1:Array(nb).fill(null),
+        tm_ac:Array(nb).fill(null),tm_pr:Array(nb).fill(null)};
+    }
+    try{
+      const r=await apiVis(v.lat,v.lon);
+      FD[v.id]={time:r.daily.time,code:r.daily.weathercode,
+        tmax:r.daily.temperature_2m_max,tmin:r.daily.temperature_2m_min,
+        rain:r.daily.precipitation_sum};
+    }catch(e){FD[v.id]=null;}
+  }));
+
+  if(errs.length){
+    const ep=document.getElementById('ep');
+    ep.style.display='block';
+    ep.textContent='⚠ Certaines données indisponibles : '+errs.join(', ')+'. Vérifiez votre connexion.';
+    setStatus('error',errs.length+' erreur(s)');
+  }else{
+    setStatus('ok','Mis à jour · '+new Date().toLocaleTimeString('fr-FR'));
+  }
+  document.getElementById('sDt').textContent=MOIS[cM-1]+' '+cY+' · '+nb+' jours';
+
+  renderKPI();
+  renderTable('t13');
+  renderTable('tmin');
+  renderFc();
+  // Render charts only if chart tab is active, else defer
+  if(curTab==='chart') renderCurrent();
+
+  document.getElementById('rBtn').classList.remove('loading');
+}
+
+// ══════════════════════════════════════════════
+//  KPI
+// ══════════════════════════════════════════════
+function mDiff(d,nb,tm){
+  const a=tm?d.tm_ac:d.t13_ac, b=tm?d.tm_n1:d.t13_n1;
+  let s=0,c=0;
+  for(let j=0;j<nb;j++) if(a[j]!=null&&b[j]!=null){s+=a[j]-b[j];c++;}
+  return c?+(s/c).toFixed(1):null;
+}
+
+function renderKPI(){
+  const nb=dim(cM,cY);
+  let h='';
+  VL.forEach((v,i)=>{
+    const d=AD[v.id];
+    let last=null;
+    for(let j=nb-1;j>=0;j--) if(d.t13_ac[j]!=null){last=d.t13_ac[j];break;}
+    const mo=mDiff(d,nb,false);
+    const cls=mo==null?'neu':mo>0?'pos':'neg';
+    const sg=mo!=null&&mo>0?'+':'';
+    h+='<div class="kc'+(i===0?' on':'')+'" onclick="kClick(this,\''+v.id+'\',\''+v.lbl+'\')"'+
+       'style="border-color:'+v.col+'22">'+
+       '<div class="kc-city" style="color:'+v.col+'">'+v.ic+' '+v.lbl+'</div>'+
+       '<div class="kc-t">'+(last!=null?last:'—')+'<span class="u">°C</span></div>'+
+       '<div class="kc-d '+cls+'">'+(mo!=null?sg+mo+'° vs '+(cY-1):'—')+'</div>'+
+       '</div>';
+  });
+  document.getElementById('kpis').innerHTML=h;
+}
+function kClick(el,id,lbl){
+  document.querySelectorAll('.kc').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  cCity=id; cCityLbl=lbl;
+  if(curTab==='chart') renderCurrent();
+}
+
+// ══════════════════════════════════════════════
+//  TABLES
+// ══════════════════════════════════════════════
+function renderTable(type){
+  const tm=type==='tmin';
+  const nb=dim(cM,cY), yr=cY;
+  const TH=document.getElementById('th-'+type);
+  const TB=document.getElementById('tb-'+type);
+
+  // Moy diff pre-calc
+  const MO={};
+  VL.forEach(v=>{MO[v.id]=AD[v.id]?mDiff(AD[v.id],nb,tm):null;});
+
+  // Row 1: city names
+  let h='<tr><th rowspan="3" style="position:sticky;left:0;z-index:12;background:var(--bg3);min-width:56px;font-size:10px">Date</th>';
+  VL.forEach((v,i)=>{
+    if(i>0) h+='<th class="sep" rowspan="3" style="background:var(--bg)"></th>';
+    h+='<th colspan="5" style="background:#1F4E79;color:#fff;font-size:11px;font-weight:700;'+
+       'letter-spacing:.6px;text-transform:uppercase;padding:8px;'+
+       'border-left:'+(i>0?'3px solid var(--bg)':'none')+'">'+v.lbl+'</th>';
+  });
+  h+='</tr><tr>';
+  VL.forEach((_,i)=>{
+    const bl=i>0?'border-left:3px solid var(--bg);':'';
+    h+='<th style="color:#93c5fd;background:var(--bg3);'+bl+'font-size:9px;padding:5px 7px">'+(yr-2)+'</th>'+
+       '<th style="color:#67e8f9;background:var(--bg3);font-size:9px;padding:5px 7px">'+(yr-1)+'</th>'+
+       '<th style="color:#c4b5fd;background:var(--bg3);font-size:9px;padding:5px 7px">Actuel</th>'+
+       '<th style="color:#f9a8d4;background:var(--bg3);font-size:9px;padding:5px 7px">Diff.</th>'+
+       '<th style="color:#f9a8d4;background:var(--bg3);font-size:8px;padding:5px 7px">Moy∅</th>';
+  });
+  h+='</tr>';
+  // Row 3: summary
+  h+='<tr style="background:rgba(244,114,182,.06);border-bottom:2px solid rgba(244,114,182,.25)">'+
+     '<td class="dc" style="position:sticky;left:0;background:rgba(11,17,32,.97);color:var(--dif);font-size:9px">Moy∅</td>';
+  VL.forEach((v,i)=>{
+    if(i>0) h+='<td class="sep" style="background:var(--bg)"></td>';
+    const mo=MO[v.id], sg=mo==null?'':mo>0?'+':'';
+    const cl=mo==null?'neu':mo>0?'pos':'neg';
+    const bl=i>0?'border-left:3px solid var(--bg);':'';
+    h+='<td style="'+bl+'"></td><td></td><td></td><td></td>'+
+       '<td class="'+cl+'" style="font-weight:700;font-size:11px">'+(mo!=null?sg+mo:'—')+'</td>';
+  });
+  h+='</tr>';
+  TH.innerHTML=h;
+
+  // Data rows
+  let rows='';
+  for(let j=0;j<nb;j++){
+    const dt=new Date(yr,cM-1,j+1);
+    const dw=dt.getDay();
+    const isWE=dw===0||dw===6;
+    const isT=dt.toDateString()===today.toDateString();
+    const rc=isT?'td':isWE?'we':'';
+    const bg=isT?'rgba(30,12,0,.97)':isWE?'rgba(14,20,30,.97)':'rgba(11,17,32,.97)';
+    rows+='<tr class="'+rc+'">';
+    rows+='<td class="dc" style="position:sticky;left:0;background:'+bg+'">'+JRS[dw]+' '+String(j+1).padStart(2,'0')+'</td>';
+    VL.forEach((v,i)=>{
+      if(i>0) rows+='<td class="sep" style="background:var(--bg)"></td>';
+      const d=AD[v.id];
+      if(!d){rows+='<td colspan="5" style="color:var(--mu)">—</td>';return;}
+      const n2=tm?d.tm_n2[j]:d.t13_n2[j];
+      const n1=tm?d.tm_n1[j]:d.t13_n1[j];
+      const ac=tm?d.tm_ac[j]:d.t13_ac[j];
+      const df=ac!=null&&n1!=null?ac-n1:null;
+      const ds=df==null?'—':(df>0?'+'+df:String(df));
+      const dc2=df==null?'neu':df>0?'pos':'neg';
+      const bl=i>0?'border-left:3px solid var(--bg);':'';
+      rows+='<td class="cn2 '+hc(n2)+'" style="'+bl+'">'+(n2!=null?n2:'—')+'</td>'+
+            '<td class="cn1 '+hc(n1)+'">'+(n1!=null?n1:'—')+'</td>'+
+            '<td class="ca '+hc(ac)+'">'+(ac!=null?ac:'—')+'</td>'+
+            '<td class="cd '+dc2+'">'+ds+'</td>'+
+            '<td class="cm"></td>';
+    });
+    rows+='</tr>';
+  }
+  TB.innerHTML=rows;
+}
+
+// ══════════════════════════════════════════════
+//  WEATHER ICONS
+// ══════════════════════════════════════════════
+function wmo(c){
+  if(c===0)return{l:'Ensoleillé',i:'sun'};if(c<=2)return{l:'Peu nuageux',i:'part'};
+  if(c===3)return{l:'Couvert',i:'cld'};if(c<=49)return{l:'Brouillard',i:'fog'};
+  if(c<=67)return{l:'Pluie',i:'rain'};if(c<=77)return{l:'Neige',i:'snow'};
+  if(c<=82)return{l:'Averses',i:'shwr'};if(c<=86)return{l:'Neige/av.',i:'snow'};
+  if(c<=99)return{l:'Orage',i:'strm'};return{l:'—',i:'sun'};
+}
+const IC={
+  sun:'<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="7" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.5"/><g stroke="#FCD34D" stroke-width="2" stroke-linecap="round"><line x1="20" y1="3" x2="20" y2="8"/><line x1="20" y1="32" x2="20" y2="37"/><line x1="3" y1="20" x2="8" y2="20"/><line x1="32" y1="20" x2="37" y2="20"/><line x1="8" y1="8" x2="11" y2="11"/><line x1="29" y1="29" x2="32" y2="32"/><line x1="32" y1="8" x2="29" y2="11"/><line x1="8" y1="32" x2="11" y2="29"/></g></svg>',
+  part:'<svg viewBox="0 0 40 40"><circle cx="13" cy="13" r="6.5" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.2"/><g stroke="#FCD34D" stroke-width="1.5" stroke-linecap="round"><line x1="13" y1="3" x2="13" y2="7"/><line x1="3" y1="13" x2="7" y2="13"/><line x1="6" y1="6" x2="9" y2="9"/><line x1="20" y1="6" x2="17" y2="9"/></g><ellipse cx="16" cy="25" rx="6" ry="5.5" fill="#64748B"/><ellipse cx="24" cy="24" rx="8" ry="7" fill="#94A3B8"/><rect x="10" y="25" width="22" height="8" rx="4" fill="#94A3B8"/></svg>',
+  cld:'<svg viewBox="0 0 40 40"><ellipse cx="14" cy="21" rx="7" ry="6.5" fill="#64748B"/><ellipse cx="24" cy="19" rx="9" ry="9" fill="#94A3B8"/><rect x="7" y="21" width="26" height="10" rx="5" fill="#94A3B8"/></svg>',
+  fog:'<svg viewBox="0 0 40 40"><rect x="5" y="12" width="30" height="3" rx="1.5" fill="#94A3B8" opacity=".7"/><rect x="9" y="19" width="22" height="3" rx="1.5" fill="#94A3B8" opacity=".6"/><rect x="5" y="26" width="30" height="3" rx="1.5" fill="#94A3B8" opacity=".5"/></svg>',
+  rain:'<svg viewBox="0 0 40 40"><ellipse cx="13" cy="14" rx="6" ry="6" fill="#475569"/><ellipse cx="24" cy="12" rx="9" ry="9" fill="#64748B"/><rect x="7" y="14" width="26" height="9" rx="4.5" fill="#64748B"/><g stroke="#60A5FA" stroke-width="2" stroke-linecap="round"><line x1="13" y1="26" x2="11" y2="33"/><line x1="20" y1="26" x2="18" y2="33"/><line x1="27" y1="26" x2="25" y2="33"/></g></svg>',
+  shwr:'<svg viewBox="0 0 40 40"><circle cx="13" cy="10" r="6" fill="#FCD34D" opacity=".7"/><ellipse cx="22" cy="15" rx="9" ry="8" fill="#64748B"/><rect x="9" y="16" width="22" height="7" rx="3.5" fill="#64748B"/><g stroke="#60A5FA" stroke-width="2" stroke-linecap="round"><line x1="13" y1="26" x2="11" y2="33"/><line x1="20" y1="26" x2="18" y2="33"/><line x1="27" y1="26" x2="25" y2="33"/></g></svg>',
+  snow:'<svg viewBox="0 0 40 40"><ellipse cx="14" cy="14" rx="6" ry="6" fill="#475569"/><ellipse cx="24" cy="12" rx="9" ry="9" fill="#64748B"/><rect x="7" y="14" width="26" height="9" rx="4.5" fill="#64748B"/><g fill="#BAE6FD"><circle cx="13" cy="30" r="2.5"/><circle cx="20" cy="34" r="2.5"/><circle cx="27" cy="30" r="2.5"/></g></svg>',
+  strm:'<svg viewBox="0 0 40 40"><ellipse cx="13" cy="12" rx="6" ry="6" fill="#374151"/><ellipse cx="24" cy="10" rx="10" ry="10" fill="#1F2937"/><rect x="7" y="12" width="26" height="10" rx="5" fill="#374151"/><polyline points="21,23 16,31 20,31 15,39" stroke="#FDE047" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+};
+
+// ══════════════════════════════════════════════
+//  FORECAST VISUAL
+// ══════════════════════════════════════════════
+function renderFc(){
+  const ts=fd(today);
+  let h='';
+  VL.forEach(v=>{
+    const f=FD[v.id];
+    h+='<div class="fcb"><div class="fch" style="background:linear-gradient(135deg,#1F4E79,'+v.col+'44)">'+
+       '<span>'+v.ic+'</span> '+v.lbl+'</div><div class="fcr">';
+    if(!f){
+      h+='<div style="padding:14px;color:var(--mu);font-size:12px">Données indisponibles</div>';
+    }else{
+      f.time.forEach((ds,i)=>{
+        const d=new Date(ds+'T12:00:00');
+        const dw=JRS[d.getDay()],nm=d.getDate(),mo=String(d.getMonth()+1).padStart(2,'0');
+        const wi=wmo(f.code[i]||0);
+        const mx=f.tmax[i]!=null?Math.round(f.tmax[i]):'—';
+        const mn=f.tmin[i]!=null?Math.round(f.tmin[i]):'—';
+        const rn=f.rain&&f.rain[i]!=null?Math.round(f.rain[i]):0;
+        const isT=ds===ts;
+        h+='<div class="fcd'+(isT?' fc-td':'')+'">'+
+           '<div class="fdl"><strong>'+dw+'</strong>'+nm+'/'+mo+'</div>'+
+           '<div class="fico">'+(IC[wi.i]||IC.sun)+'</div>'+
+           '<div class="fmx">'+mx+'°</div>'+
+           '<div class="fmn">'+mn+'°</div>'+
+           '<div class="fds">'+wi.l+'</div>'+
+           (rn>0?'<div class="frn">'+rn+'mm</div>':'')+
+           '</div>';
+      });
+    }
+    h+='</div></div>';
+  });
+  document.getElementById('fcGrid').innerHTML=h||'<p style="color:var(--mu);padding:20px">Aucune donnée</p>';
+}
+
+// ══════════════════════════════════════════════
+//  GAUGE SVG
+// ══════════════════════════════════════════════
+function gauPt(R,n){
+  const th=Math.PI*(1-n);
+  return [100+R*Math.cos(th), 88-R*Math.sin(th)];
+}
+function gauArc(R,n1,n2){
+  const [x1,y1]=gauPt(R,n1),[x2,y2]=gauPt(R,n2);
+  return 'M '+x1.toFixed(1)+','+y1.toFixed(1)+' A '+R+','+R+' 0 '+(n2-n1>=.5?1:0)+',1 '+x2.toFixed(1)+','+y2.toFixed(1);
+}
+const ZONES=[
+  {n1:0,   n2:.2,  c:'#60a5fa',l:'Froid'},
+  {n1:.2,  n2:.4,  c:'#34d399',l:'Frais'},
+  {n1:.4,  n2:.62, c:'#fde68a',l:'Doux'},
+  {n1:.62, n2:.8,  c:'#fb923c',l:'Chaud'},
+  {n1:.8,  n2:1,   c:'#f87171',l:'Très chaud'},
+];
+
+function makeGauge(temp,diff,color,uid){
+  const TMIN=4,TMAX=42,R=68,Rn=54;
+  const norm=temp!=null?Math.max(0,Math.min(1,(temp-TMIN)/(TMAX-TMIN))):0;
+  const ang=-180+norm*180;
+
+  let s='<svg viewBox="0 0 200 105" width="100%">';
+  // Background arc
+  s+='<path d="'+gauArc(R,0,1)+'" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="13"/>';
+  // Zone arcs
+  ZONES.forEach(z=>{ s+='<path d="'+gauArc(R,z.n1,z.n2)+'" fill="none" stroke="'+z.c+'" stroke-width="11" opacity=".88"/>'; });
+  // Scale labels
+  s+='<text x="20" y="90" fill="rgba(255,255,255,.3)" font-size="9" font-family="DM Mono,monospace" text-anchor="middle">'+TMIN+'°</text>';
+  s+='<text x="180" y="90" fill="rgba(255,255,255,.3)" font-size="9" font-family="DM Mono,monospace" text-anchor="middle">'+TMAX+'°</text>';
+
+  // Needle
+  if(temp!=null){
+    const rad=(ang+90)*Math.PI/180;
+    const ex=(100+Rn*Math.sin(rad)).toFixed(1);
+    const ey=(88-Rn*Math.cos(rad)).toFixed(1);
+    s+='<line x1="100" y1="88" x2="'+ex+'" y2="'+ey+'" stroke="white" stroke-width="2.5" stroke-linecap="round"/>';
+    s+='<circle cx="100" cy="88" r="5.5" fill="'+color+'" stroke="rgba(255,255,255,.9)" stroke-width="1.5"/>';
+    s+='<circle cx="'+ex+'" cy="'+ey+'" r="3" fill="white"/>';
+  }else{
+    s+='<circle cx="100" cy="88" r="5" fill="'+color+'" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>';
+  }
+
+  // Temp display
+  const td=temp!=null?(temp+'°C'):'—';
+  const dd2=diff!=null?(diff>0?'▲ +'+diff.toFixed(1)+'°':'▼ '+diff.toFixed(1)+'°'):'—';
+  const dc=diff==null?'rgba(255,255,255,.3)':diff>0?'#f87171':'#34d399';
+  s+='<text x="100" y="70" fill="white" font-size="20" font-weight="500" font-family="DM Mono,monospace" text-anchor="middle">'+td+'</text>';
+  s+='<text x="100" y="82" fill="'+dc+'" font-size="10" font-family="DM Mono,monospace" text-anchor="middle">'+dd2+'</text>';
+  s+='</svg>';
+  return s;
+}
+
+// ══════════════════════════════════════════════
+//  RENDER GAUGES
+// ══════════════════════════════════════════════
+function renderGauges(){
+  const nb=dim(cM,cY);
+  let h='<div class="gg" id="gg-inner">';
+  VL.forEach((v,i)=>{
+    const d=AD[v.id];
+    let last=null;
+    for(let j=nb-1;j>=0;j--) if(d.t13_ac[j]!=null){last=d.t13_ac[j];break;}
+    const mo=mDiff(d,nb,false);
+    const av2=avgArr(d.t13_n2), av1=avgArr(d.t13_n1), avA=avgArr(d.t13_ac);
+    const sg=mo==null?'':mo>0?'+':'';
+    const mc=mo==null?'var(--mu)':mo>0?'var(--rd)':'var(--gr)';
+    h+='<div class="gc" style="border-color:'+v.col+'33">'+
+       '<div class="gch">'+
+       '<div class="gci" style="background:'+v.bg+';color:'+v.col+'">'+v.ic+'</div>'+
+       '<div>'+
+       '<div class="gcn" style="color:'+v.col+'">'+v.lbl+'</div>'+
+       '<div class="gcs" style="color:'+mc+'">'+
+       (mo!=null?sg+mo+'° vs '+(cY-1):'—')+'</div>'+
+       '</div></div>'+
+       makeGauge(last,mo,v.col,'g'+v.id)+
+       '<div style="height:36px;margin-top:4px"><canvas id="sg-'+v.id+'" height="36"></canvas></div>'+
+       '<div class="gstat">'+
+       '<div class="gst-item"><div class="gst-lbl">'+(cY-2)+'</div><div class="gst-val" style="color:var(--n2)">'+(av2!=null?av2+'°':'—')+'</div></div>'+
+       '<div class="gst-item"><div class="gst-lbl">'+(cY-1)+'</div><div class="gst-val" style="color:var(--n1)">'+(av1!=null?av1+'°':'—')+'</div></div>'+
+       '<div class="gst-item"><div class="gst-lbl">Actuel</div><div class="gst-val" style="color:'+v.col+'">'+(avA!=null?avA+'°':last!=null?last+'°':'—')+'</div></div>'+
+       '</div></div>';
+  });
+  h+='</div>';
+  document.getElementById('cm-g').innerHTML=h;
+
+  // Mini sparklines
+  const nb2=dim(cM,cY), lbs=Array.from({length:nb2},(_,j)=>j+1);
+  VL.forEach(v=>{
+    const cv=document.getElementById('sg-'+v.id);
+    if(!cv) return;
+    if(CH['sg-'+v.id]){CH['sg-'+v.id].destroy();}
+    const d=AD[v.id];
+    CH['sg-'+v.id]=new Chart(cv.getContext('2d'),{
+      type:'line',
+      data:{labels:lbs,datasets:[
+        {data:d.t13_n1,borderColor:'rgba(34,211,238,.4)',borderWidth:1,pointRadius:0,tension:.35},
+        {data:d.t13_ac,borderColor:v.col,backgroundColor:v.col+'20',borderWidth:1.8,pointRadius:0,tension:.35,fill:true},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:600},
+        plugins:{legend:{display:false},tooltip:{enabled:false}},
+        scales:{x:{display:false},y:{display:false}}}
+    });
+  });
+}
+
+// ══════════════════════════════════════════════
+//  RENDER SPARKLINES
+// ══════════════════════════════════════════════
+function renderSparks(){
+  const tm=spType==='tmin';
+  const nb=dim(cM,cY), lbs=Array.from({length:nb},(_,j)=>j+1);
+  let h='<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">'+
+        '<span style="font-size:11px;color:var(--mu)">Afficher :</span>'+
+        '<button class="cmb'+(spType==='t13'?' on':'')+'" onclick="spSwitch(\'t13\')">13h</button>'+
+        '<button class="cmb'+(spType==='tmin'?' on':'')+'" onclick="spSwitch(\'tmin\')">Min</button>'+
+        '</div><div class="sg">';
+
+  VL.forEach((v,i)=>{
+    const d=AD[v.id];
+    const arrAc=tm?d.tm_ac:d.t13_ac;
+    let last=null;
+    for(let j=nb-1;j>=0;j--) if(arrAc[j]!=null){last=arrAc[j];break;}
+    const mo=mDiff(d,nb,tm);
+    const sg=mo==null?'':mo>0?'+':'';
+    const mc=mo==null?'var(--mu)':mo>0?'var(--rd)':'var(--gr)';
+    h+='<div class="sc" style="border-left:3px solid '+v.col+'">'+
+       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+       '<div style="display:flex;align-items:center;gap:8px">'+
+       '<div style="width:28px;height:28px;border-radius:6px;background:'+v.bg+';color:'+v.col+';display:flex;align-items:center;justify-content:center;font-size:15px">'+v.ic+'</div>'+
+       '<div><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:'+v.col+'">'+v.lbl+'</div>'+
+       '<div style="font-size:9px;color:var(--mu);font-family:\'DM Mono\',monospace">'+(tm?'Temp. Min':'Temp. 13h')+'</div></div>'+
+       '</div>'+
+       '<div style="text-align:right">'+
+       '<div style="font-size:20px;font-family:\'DM Mono\',monospace;font-weight:500;color:'+v.col+'">'+(last!=null?last+'°':'—')+'</div>'+
+       '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:'+mc+'">Moy∅ '+(mo!=null?sg+mo+'°':'—')+'</div>'+
+       '</div></div>'+
+       '<div style="display:flex;gap:10px;font-size:9px;font-family:\'DM Mono\',monospace;color:var(--mu);margin-bottom:6px">'+
+       '<span><span style="display:inline-block;width:10px;height:2px;background:var(--n2);vertical-align:middle;margin-right:3px"></span>'+(cY-2)+'</span>'+
+       '<span><span style="display:inline-block;width:10px;height:2px;background:var(--n1);vertical-align:middle;margin-right:3px"></span>'+(cY-1)+'</span>'+
+       '<span><span style="display:inline-block;width:10px;height:2px;background:'+v.col+';vertical-align:middle;margin-right:3px"></span>Actuel</span>'+
+       '</div>'+
+       '<div style="height:110px;position:relative"><canvas id="sp-'+v.id+'" height="110"></canvas></div>'+
+       '</div>';
+  });
+  h+='</div>';
+  document.getElementById('cm-s').innerHTML=h;
+
+  // Render sparkline charts
+  VL.forEach(v=>{
+    const cv=document.getElementById('sp-'+v.id); if(!cv)return;
+    if(CH['sp-'+v.id]){CH['sp-'+v.id].destroy();}
+    const d=AD[v.id];
+    const n2=tm?d.tm_n2:d.t13_n2, n1=tm?d.tm_n1:d.t13_n1, ac=tm?d.tm_ac:d.t13_ac;
+    CH['sp-'+v.id]=new Chart(cv.getContext('2d'),{
+      type:'line',
+      data:{labels:Array.from({length:dim(cM,cY)},(_,j)=>j+1),datasets:[
+        {label:String(cY-2),data:n2,borderColor:'#3b82f6',backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:.35,borderDash:[3,2]},
+        {label:String(cY-1),data:n1,borderColor:'#22d3ee',backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:.35},
+        {label:'Actuel',data:ac,borderColor:v.col,backgroundColor:v.col+'22',borderWidth:2.2,pointRadius:0,tension:.35,fill:true},
+      ]},
+      options:{
+        responsive:true,maintainAspectRatio:false,animation:{duration:500},
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:false},
+          tooltip:{backgroundColor:'#1c2a3e',borderColor:v.col+'66',borderWidth:1,
+            titleColor:'#e2e8f0',bodyColor:'#94a3b8',padding:8,
+            callbacks:{label:c=>c.dataset.label+': '+(c.raw!=null?c.raw+'°C':'—')}}},
+        scales:{
+          x:{ticks:{color:'#475569',font:{size:8,family:"'DM Mono'"},maxTicksLimit:10},grid:{color:'rgba(255,255,255,.03)'}},
+          y:{ticks:{color:'#475569',font:{size:8,family:"'DM Mono'"},callback:v=>v+'°'},grid:{color:'rgba(255,255,255,.03)'}}
+        }
+      }
+    });
+  });
+}
+function spSwitch(t){spType=t;renderSparks();}
+
+// ══════════════════════════════════════════════
+//  RENDER COMPARE
+// ══════════════════════════════════════════════
+function dch(id){if(CH[id]){CH[id].destroy();delete CH[id];}}
+function cOpts(unit){
+  return{responsive:true,maintainAspectRatio:false,animation:{duration:400},
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:'#64748b',font:{size:9,family:"'DM Mono'"},boxWidth:10,padding:8}},
+      tooltip:{backgroundColor:'#1c2a3e',borderColor:'rgba(255,255,255,.1)',borderWidth:1,
+        titleColor:'#e2e8f0',bodyColor:'#94a3b8',padding:8,
+        callbacks:{label:c=>c.dataset.label+': '+(c.raw!=null?c.raw+unit:'—')}}},
+    scales:{
+      x:{ticks:{color:'#475569',font:{size:9,family:"'DM Mono'"},maxTicksLimit:14},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{ticks:{color:'#475569',font:{size:9,family:"'DM Mono'"},callback:v=>v+'°'},grid:{color:'rgba(255,255,255,.04)'}}
+    }
+  };
+}
+
+function renderCompare(){
+  // Update city label
+  const e1=document.getElementById('ccity'), e2=document.getElementById('ccity2');
+  if(e1) e1.textContent=cCityLbl; if(e2) e2.textContent=cCityLbl;
+
+  // Build city buttons
+  const cb=document.getElementById('cbtns');
+  if(cb){
+    cb.innerHTML='';
+    VL.forEach((v,i)=>{
+      const b=document.createElement('button');
+      b.className='cbtn'+(v.id===cCity?' on':'');
+      b.textContent=v.lbl;
+      b.style.borderColor=v.id===cCity?v.col+'88':'';
+      b.style.color=v.id===cCity?v.col:'';
+      b.onclick=()=>{cCity=v.id;cCityLbl=v.lbl;renderCompare();};
+      cb.appendChild(b);
+    });
+  }
+
+  const nb=dim(cM,cY), lbs=Array.from({length:nb},(_,j)=>j+1);
+  const d=AD[cCity];
+  dch('c13');dch('cmn');dch('cdf');dch('cht');
+
+  if(d){
+    const mk=(arr,col,a)=>({data:arr,borderColor:col,backgroundColor:a||'transparent',borderWidth:a?2.5:1.5,pointRadius:0,tension:.3,fill:!!a});
+    charts2('c-13h','c13',[
+      {...mk(d.t13_n2,'#3b82f6'),label:String(cY-2)},
+      {...mk(d.t13_n1,'#22d3ee'),label:String(cY-1)},
+      {...mk(d.t13_ac,'#a78bfa','rgba(167,139,250,.12)'),label:'Actuel',pointRadius:2},
+    ],lbs);
+    charts2('c-mn','cmn',[
+      {...mk(d.tm_n2,'#3b82f6'),label:String(cY-2)},
+      {...mk(d.tm_n1,'#22d3ee'),label:String(cY-1)},
+      {...mk(d.tm_ac,'#a78bfa','rgba(167,139,250,.12)'),label:'Actuel',pointRadius:2},
+    ],lbs);
+  }
+
+  const diffs=VL.map(v=>{const dd=AD[v.id];return dd?mDiff(dd,nb,false):null;});
+  const cv3=document.getElementById('c-df'); if(!cv3)return;
+  CH['cdf']=new Chart(cv3.getContext('2d'),{
+    type:'bar',
+    data:{labels:VL.map(v=>v.lbl),datasets:[{
+      label:'Diff moy',data:diffs,borderRadius:6,borderSkipped:false,
+      backgroundColor:diffs.map(v=>v==null?'#475569':v>0?'rgba(248,113,113,.75)':'rgba(52,211,153,.75)'),
+    }]},
+    options:{...cOpts('°C'),indexAxis:'y',
+      plugins:{...cOpts('°C').plugins,legend:{display:false}},
+      scales:{x:{ticks:{color:'#475569',font:{size:9,family:"'DM Mono'"},callback:v=>(v>0?'+':'')+v+'°'},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#64748b',font:{size:9,family:"'DM Mono'"}},grid:{display:false}}}}
+  });
+
+  const cv4=document.getElementById('c-ht'); if(!cv4)return;
+  CH['cht']=new Chart(cv4.getContext('2d'),{
+    type:'line',
+    data:{labels:lbs,datasets:VL.map(v=>({
+      label:v.lbl,data:AD[v.id]?.t13_pr??Array(nb).fill(null),
+      borderColor:v.col,backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,
+    }))},
+    options:cOpts('°C')
+  });
+}
+
+function charts2(canvasId,key,datasets,labels){
+  dch(key);
+  const cv=document.getElementById(canvasId); if(!cv)return;
+  CH[key]=new Chart(cv.getContext('2d'),{type:'line',data:{labels,datasets},options:cOpts('°C')});
+}
+
+// ══════════════════════════════════════════════
+//  CHART MODE SWITCH
+// ══════════════════════════════════════════════
+function setCMode(m){
+  cMode=m;
+  ['g','s','c'].forEach(x=>{
+    document.getElementById('cm-'+x).style.display=x===m?'block':'none';
+    document.getElementById('cmb-'+x).classList.toggle('on',x===m);
+  });
+  renderCurrent();
+}
+function renderCurrent(){
+  if(cMode==='g') renderGauges();
+  else if(cMode==='s') renderSparks();
+  else renderCompare();
+}
+
+// ══════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════
+function goTab(t){
+  curTab=t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
+  document.getElementById('tab-'+t).classList.add('on');
+  ['t13','tmin','prev','chart'].forEach(id=>{
+    document.getElementById('v-'+id).style.display=id===t?'block':'none';
+  });
+  if(t==='chart') renderCurrent();
+}
+
+// ══════════════════════════════════════════════
+//  EXCEL EXPORT
+// ══════════════════════════════════════════════
+function exportExcel(){
+  const btn=document.getElementById('xBtn'),ico=document.getElementById('xIco');
+  btn.classList.add('busy');ico.textContent='…';
+  const nb=dim(cM,cY),yr=cY,n2=yr-2,n1=yr-1;
+  const nm=MOIS[cM-1].toLowerCase();
+  const C={hV:{fgColor:{rgb:'1F4E79'}},hH:{fgColor:{rgb:'D6E4F0'}},hA:{fgColor:{rgb:'E2EFDA'}},hD:{fgColor:{rgb:'FCE4D6'}},hDt:{fgColor:{rgb:'F2F2F2'}}};
+  const fWB={bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  const fB={bold:true,name:'Arial',sz:10},fN={name:'Arial',sz:10};
+  const bd={top:{style:'thin',color:{rgb:'BFBFBF'}},bottom:{style:'thin',color:{rgb:'BFBFBF'}},left:{style:'thin',color:{rgb:'BFBFBF'}},right:{style:'thin',color:{rgb:'BFBFBF'}}};
+  const aC={horizontal:'center',vertical:'center'};
+  const CPV=7;
+
+  function bs(tm){
+    const ws={},mg=[];
+    const mds=VL.map(v=>AD[v.id]?mDiff(AD[v.id],nb,tm):null);
+    VL.forEach((v,vi)=>{
+      const cs=vi*CPV;
+      ws[XLSX.utils.encode_cell({r:0,c:cs})]={v:v.lbl,t:'s',s:{fill:C.hV,font:fWB,alignment:aC,border:bd}};
+      mg.push({s:{r:0,c:cs},e:{r:0,c:cs+5}});
+      [['',[C.hV,fWB]],[String(n2),[C.hH,fB]],[String(n1),[C.hH,fB]],[String(yr),[C.hA,fB]],['différentiel',[C.hD,fB]],['moy. différentiel',[C.hD,fB]]].forEach(([tx,[fi,fo]],hi)=>{
+        ws[XLSX.utils.encode_cell({r:1,c:cs+hi})]={v:tx,t:'s',s:{fill:fi,font:fo,alignment:aC,border:bd}};
+      });
+      for(let j=0;j<nb;j++){
+        const ri=j+2,dt=new Date(yr,cM-1,j+1);
+        const dStr=JRS[dt.getDay()]+' '+String(j+1).padStart(2,'0')+'/'+String(cM).padStart(2,'0');
+        const dd=AD[v.id];
+        const n2v=dd?(tm?dd.tm_n2[j]:dd.t13_n2[j]):null;
+        const n1v=dd?(tm?dd.tm_n1[j]:dd.t13_n1[j]):null;
+        const acv=dd?(tm?dd.tm_ac[j]:dd.t13_ac[j]):null;
+        const df=acv!=null&&n1v!=null?acv-n1v:null;
+        const mv=j===0?mds[vi]:null;
+        ws[XLSX.utils.encode_cell({r:ri,c:cs})]  ={v:dStr,t:'s',s:{fill:C.hDt,font:{bold:true,name:'Arial',sz:10},alignment:aC,border:bd}};
+        ws[XLSX.utils.encode_cell({r:ri,c:cs+1})]={v:n2v??'',t:n2v!=null?'n':'s',s:{fill:C.hH,font:fN,alignment:aC,border:bd}};
+        ws[XLSX.utils.encode_cell({r:ri,c:cs+2})]={v:n1v??'',t:n1v!=null?'n':'s',s:{fill:C.hH,font:fN,alignment:aC,border:bd}};
+        ws[XLSX.utils.encode_cell({r:ri,c:cs+3})]={v:acv??'',t:acv!=null?'n':'s',s:{fill:C.hA,font:{...fN,bold:acv!=null},alignment:aC,border:bd}};
+        const dF=df==null?fN:df>0?{bold:true,name:'Arial',sz:10,color:{rgb:'C00000'}}:{bold:true,name:'Arial',sz:10,color:{rgb:'375623'}};
+        ws[XLSX.utils.encode_cell({r:ri,c:cs+4})]={v:df??'',t:df!=null?'n':'s',s:{fill:C.hD,font:dF,alignment:aC,border:bd}};
+        ws[XLSX.utils.encode_cell({r:ri,c:cs+5})]={v:mv??'',t:mv!=null?'n':'s',s:{fill:C.hD,font:{...fN,bold:j===0},alignment:aC,border:bd}};
+      }
+    });
+    ws['!cols']=VL.flatMap(()=>[{wch:10},{wch:6},{wch:6},{wch:7},{wch:11},{wch:16},{wch:2}]);
+    ws['!merges']=mg;
+    ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nb+1,c:VL.length*CPV-1}});
+    ws['!rows']=[{hpx:22},{hpx:20},...Array(nb).fill({hpx:18})];
+    return ws;
+  }
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,bs(false),'temp 13h');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([[]]),'graphique temp13h');
+  XLSX.utils.book_append_sheet(wb,bs(true),'temp min');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([[]]),'graphique temp min');
+  XLSX.writeFile(wb,'recap_météo_'+nm+'_'+yr+'.xlsx');
+  btn.classList.remove('busy');ico.textContent='↓';
+}
+
+// ══════════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
